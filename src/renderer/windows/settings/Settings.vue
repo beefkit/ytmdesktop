@@ -35,6 +35,7 @@ const playback: StoreSchema["playback"] = await store.get("playback");
 const integrations: StoreSchema["integrations"] = await store.get("integrations");
 const shortcuts: StoreSchema["shortcuts"] = await store.get("shortcuts");
 const lastFM: StoreSchema["lastfm"] = await store.get("lastfm");
+const lidarr: StoreSchema["lidarr"] = await store.get("lidarr");
 
 const disableHardwareAcceleration = ref<boolean>(general.disableHardwareAcceleration);
 const hideToTrayOnClose = ref<boolean>(general.hideToTrayOnClose);
@@ -61,6 +62,12 @@ const companionServerAuthTokens = ref<AuthToken[]>(
 const companionServerCORSWildcardEnabled = ref<boolean>(integrations.companionServerCORSWildcardEnabled);
 const discordPresenceEnabled = ref<boolean>(integrations.discordPresenceEnabled);
 const lastFMEnabled = ref<boolean>(integrations.lastFMEnabled);
+const lidarrEnabled = ref<boolean>(integrations.lidarrEnabled);
+
+const lidarrUrl = ref<string>(lidarr.url);
+const lidarrApiKey = ref<string>("");
+const lidarrConnectionStatus = ref<string>("");
+const lidarrConnectionTesting = ref<boolean>(false);
 
 const shortcutPlayPause = ref<string>(shortcuts.playPause);
 const shortcutNext = ref<string>(shortcuts.next);
@@ -99,6 +106,8 @@ store.onDidAnyChange(async newState => {
   companionServerCORSWildcardEnabled.value = newState.integrations.companionServerCORSWildcardEnabled;
   discordPresenceEnabled.value = newState.integrations.discordPresenceEnabled;
   lastFMEnabled.value = newState.integrations.lastFMEnabled;
+  lidarrEnabled.value = newState.integrations.lidarrEnabled;
+  lidarrUrl.value = newState.lidarr.url;
   lastFMSessionKey.value = newState.lastfm.sessionKey;
   scrobblePercent.value = newState.lastfm.scrobblePercent;
 
@@ -169,6 +178,8 @@ async function settingsChanged() {
   store.set("integrations.companionServerCORSWildcardEnabled", companionServerCORSWildcardEnabled.value);
   store.set("integrations.discordPresenceEnabled", discordPresenceEnabled.value);
   store.set("integrations.lastFMEnabled", lastFMEnabled.value);
+  store.set("integrations.lidarrEnabled", lidarrEnabled.value);
+  store.set("lidarr.url", lidarrUrl.value);
   store.set("lastfm.scrobblePercent", scrobblePercent.value);
 
   store.set("shortcuts.playPause", shortcutPlayPause.value);
@@ -241,6 +252,32 @@ async function logoutLastFM() {
   lastFMEnabled.value = false;
   lastFMSessionKey.value = null;
   await settingsChanged();
+}
+
+async function testLidarrConnection() {
+  lidarrConnectionTesting.value = true;
+  lidarrConnectionStatus.value = "";
+
+  // Save the API key first if entered
+  if (lidarrApiKey.value) {
+    window.ytmd.saveLidarrApiKey(lidarrApiKey.value);
+    lidarrApiKey.value = "";
+  }
+
+  // Save the URL
+  await settingsChanged();
+
+  const result = await window.ytmd.testLidarrConnection();
+  lidarrConnectionStatus.value = result.message;
+  lidarrConnectionTesting.value = false;
+}
+
+async function saveLidarrApiKey() {
+  if (lidarrApiKey.value) {
+    window.ytmd.saveLidarrApiKey(lidarrApiKey.value);
+    lidarrApiKey.value = "";
+    lidarrConnectionStatus.value = "API key saved";
+  }
 }
 
 window.ytmd.handleCheckingForUpdate(() => {
@@ -437,6 +474,41 @@ window.ytmd.handleUpdateDownloaded(() => {
             step="5"
             @change="settingsChanged"
           />
+          <YTMDSetting
+            v-model="lidarrEnabled"
+            type="checkbox"
+            name="Lidarr"
+            description="Automatically add albums to Lidarr when you add them to your library"
+            :disabled="!safeStorageAvailable"
+            disabled-message="This integration cannot be enabled due to safeStorage being unavailable"
+            @change="settingsChanged"
+          />
+          <div v-if="lidarrEnabled" class="setting indented">
+            <div class="name-with-description">
+              <p class="name">Server URL</p>
+              <p class="description">e.g., http://192.168.1.100:8686</p>
+            </div>
+            <input v-model="lidarrUrl" type="text" class="text-input" placeholder="http://localhost:8686" @change="settingsChanged" />
+          </div>
+          <div v-if="lidarrEnabled" class="setting indented">
+            <div class="name-with-description">
+              <p class="name">API Key</p>
+              <p class="description">Found in Lidarr Settings > General</p>
+            </div>
+            <input v-model="lidarrApiKey" type="password" class="text-input" placeholder="Enter API key to save" @change="saveLidarrApiKey" />
+          </div>
+          <div v-if="lidarrEnabled" class="setting indented">
+            <div class="name-with-description">
+              <p class="description">
+                Connection:
+                <span v-if="lidarrConnectionTesting" style="color: #888888">Testing...</span>
+                <span v-else-if="lidarrConnectionStatus === 'Connection successful'" style="color: #4caf50">{{ lidarrConnectionStatus }}</span>
+                <span v-else-if="lidarrConnectionStatus" style="color: #ff1100">{{ lidarrConnectionStatus }}</span>
+                <span v-else style="color: #888888">Not tested</span>
+              </p>
+            </div>
+            <button :disabled="lidarrConnectionTesting" @click="testLidarrConnection">Test Connection</button>
+          </div>
         </div>
 
         <div v-if="currentTab === 5" class="shortcuts-tab">
@@ -866,5 +938,24 @@ button {
 .shortcuts-tab .shortcut-title .register-error {
   margin-left: 4px;
   color: #f44336;
+}
+
+.text-input {
+  background-color: #212121;
+  border: 1px solid #414141;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #ffffff;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #666666;
+}
+
+.text-input::placeholder {
+  color: #888888;
 }
 </style>

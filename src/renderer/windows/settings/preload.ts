@@ -45,5 +45,7 @@ contextBridge.exposeInMainWorld("ytmd", {
   handleUpdateDownloaded: (callback: (event: Electron.IpcRendererEvent) => void) => ipcRenderer.on("app:updateDownloaded", callback),
   isAppUpdateAvailable: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateAvailable"),
   isAppUpdateDownloaded: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateDownloaded"),
-  getTrueFilePath: (file: File) => webUtils.getPathForFile(file)
+  getTrueFilePath: (file: File) => webUtils.getPathForFile(file),
+  testLidarrConnection: async (): Promise<{ success: boolean; message: string }> => await ipcRenderer.invoke("lidarr:testConnection"),
+  saveLidarrApiKey: (apiKey: string) => ipcRenderer.send("lidarr:saveApiKey", apiKey)
 });

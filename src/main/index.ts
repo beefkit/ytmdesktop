@@ -32,6 +32,7 @@ import CompanionServer from "./integrations/companion-server";
 import CustomCSS from "./integrations/custom-css";
 import DiscordPresence from "./integrations/discord-presence";
 import LastFM from "./integrations/last-fm";
+import Lidarr from "./integrations/lidarr";
 import NowPlayingNotifications from "./integrations/notifications";
 import VolumeRatio from "./integrations/volume-ratio";
 
@@ -165,6 +166,7 @@ const companionServer = new CompanionServer();
 const customCss = new CustomCSS();
 const discordPresence = new DiscordPresence();
 const lastFMScrobbler = new LastFM();
+const lidarrIntegration = new Lidarr();
 const nowPlayingNotifications = new NowPlayingNotifications();
 const ratioVolume = new VolumeRatio();
 
@@ -368,7 +370,8 @@ const store = new Conf<StoreSchema>({
       companionServerAuthTokens: null,
       companionServerCORSWildcardEnabled: false,
       discordPresenceEnabled: false,
-      lastFMEnabled: false
+      lastFMEnabled: false,
+      lidarrEnabled: false
     },
     shortcuts: {
       playPause: "",
@@ -393,6 +396,10 @@ const store = new Conf<StoreSchema>({
       token: null,
       sessionKey: null,
       scrobblePercent: 50
+    },
+    lidarr: {
+      url: "",
+      apiKey: null
     },
     developer: {
       enableDevTools: false
@@ -546,6 +553,17 @@ store.onDidAnyChange(async (newState, oldState) => {
   } else if (!newState.integrations.lastFMEnabled && oldState.integrations.lastFMEnabled) {
     lastFMScrobbler.disable();
     log.info("Integration disabled: Last.fm");
+  }
+
+  if (newState.integrations.lidarrEnabled) {
+    lidarrIntegration.provide(store, memoryStore);
+  }
+  if (newState.integrations.lidarrEnabled && !oldState.integrations.lidarrEnabled) {
+    lidarrIntegration.enable();
+    log.info("Integration enabled: Lidarr");
+  } else if (!newState.integrations.lidarrEnabled && oldState.integrations.lidarrEnabled) {
+    lidarrIntegration.disable();
+    log.info("Integration disabled: Lidarr");
   }
 
   if (anyShortcutChanged(newState, oldState)) registerShortcuts();
@@ -1680,6 +1698,26 @@ app.on("ready", async () => {
     return ytmViewIntegrationScripts;
   });
 
+  // Handle Lidarr integration ipc
+  ipcMain.on("ytmView:albumAddedToLibrary", (event, albumInfo) => {
+    if (event.sender !== ytmView.webContents) return;
+
+    lidarrIntegration.provide(store, memoryStore);
+    // The integration handles the event internally via its own listener
+  });
+
+  ipcMain.handle("lidarr:testConnection", async event => {
+    if (event.sender !== settingsWindow?.webContents) return;
+
+    return lidarrIntegration.testConnection();
+  });
+
+  ipcMain.on("lidarr:saveApiKey", (event, apiKey: string) => {
+    if (event.sender !== settingsWindow?.webContents) return;
+
+    lidarrIntegration.saveApiKey(apiKey);
+  });
+
   // Handle memory store ipc
   ipcMain.on("memoryStore:set", (event, key: string, value?: unknown) => {
     if (settingsWindow && event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
@@ -1951,6 +1989,13 @@ app.on("ready", async () => {
     lastFMScrobbler.provide(store, memoryStore);
     lastFMScrobbler.enable();
     log.info("Integration enabled: Last.fm");
+  }
+
+  // Lidarr
+  if (store.get("integrations").lidarrEnabled) {
+    lidarrIntegration.provide(store, memoryStore);
+    lidarrIntegration.enable();
+    log.info("Integration enabled: Lidarr");
   }
 
   nativeTheme.on("updated", setTrayIcon);
