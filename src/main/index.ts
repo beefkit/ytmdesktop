@@ -1699,13 +1699,6 @@ app.on("ready", async () => {
   });
 
   // Handle Lidarr integration ipc
-  ipcMain.on("ytmView:albumAddedToLibrary", (event, albumInfo) => {
-    if (event.sender !== ytmView.webContents) return;
-
-    lidarrIntegration.provide(store, memoryStore);
-    // The integration handles the event internally via its own listener
-  });
-
   ipcMain.handle("lidarr:testConnection", async event => {
     if (event.sender !== settingsWindow?.webContents) return;
 
