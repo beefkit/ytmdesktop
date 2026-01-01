@@ -17,6 +17,7 @@ import hookPlayerApiEventsScript from "./scripts/hookplayerapievents.script?raw"
 import getPlaylistsScript from "./scripts/getplaylists.script?raw";
 import toggleLikeScript from "./scripts/togglelike.script?raw";
 import toggleDislikeScript from "./scripts/toggledislike.script?raw";
+import albumLibraryActionScript from "./scripts/albumlibraryaction.script?raw";
 
 const store = new Store<StoreSchema>();
 
@@ -304,6 +305,9 @@ window.addEventListener("load", async () => {
   await hideChromecastButton();
   await hookPlayerApiEvents();
   overrideHistoryButtonDisplay();
+
+  // Initialize album library action detection for Lidarr integration
+  (await webFrame.executeJavaScript(albumLibraryActionScript))();
 
   const integrationScripts: { [integrationName: string]: { [scriptName: string]: string } } = await ipcRenderer.invoke("ytmView:getIntegrationScripts");
 
