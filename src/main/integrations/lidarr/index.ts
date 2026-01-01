@@ -104,7 +104,13 @@ export default class Lidarr implements IIntegration {
 
       try {
         const albums = await this.searchAlbum(`${albumInfo.artist} ${albumInfo.album}`);
+        log.info(`Lidarr: Album search returned ${albums?.length || 0} results`);
         if (albums && albums.length > 0) {
+          // Log first few results for debugging
+          albums.slice(0, 3).forEach((a, i) => {
+            log.info(`Lidarr: Album result ${i}: "${a.title}" by "${a.artist?.artistName}" (${a.foreignAlbumId})`);
+          });
+
           // Find the best matching album
           const normalizedTitle = albumInfo.album.toLowerCase();
           const matchingAlbum = albums.find(a =>
@@ -115,7 +121,9 @@ export default class Lidarr implements IIntegration {
 
           foreignAlbumId = matchingAlbum.foreignAlbumId;
           artist = matchingAlbum.artist;
-          log.info(`Lidarr: Found album "${matchingAlbum.title}" (${foreignAlbumId})`);
+          log.info(`Lidarr: Selected album "${matchingAlbum.title}" (${foreignAlbumId})`);
+        } else {
+          log.warn(`Lidarr: No albums found in search results`);
         }
       } catch (albumSearchError) {
         log.warn(`Lidarr: Album search failed: ${albumSearchError.message}`);
@@ -341,13 +349,17 @@ export default class Lidarr implements IIntegration {
       rootFolderPath: this.cachedRootFolders[0].path,
       monitored: true,
       addOptions: {
-        // Use "existing" to keep artist monitored
-        // albumsToMonitor tells Lidarr which specific album to monitor
-        monitor: "existing",
+        // Use "future" to only monitor future releases by default
+        // albumsToMonitor specifies the specific album we want to monitor
+        // This avoids the "none" bug where artist becomes unmonitored
+        monitor: "future",
         searchForMissingAlbums: false,
-        ...(foreignAlbumId ? { albumsToMonitor: [foreignAlbumId] } : {})
+        albumsToMonitor: foreignAlbumId ? [foreignAlbumId] : []
       }
     };
+
+    log.info(`Lidarr: Adding artist with foreignAlbumId: ${foreignAlbumId || "none"}`);
+    log.info(`Lidarr: Payload addOptions: ${JSON.stringify(payload.addOptions)}`);
 
     const response = await this.lidarrFetch("/api/v1/artist", {
       method: "POST",
