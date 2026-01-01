@@ -349,12 +349,12 @@ export default class Lidarr implements IIntegration {
       rootFolderPath: this.cachedRootFolders[0].path,
       monitored: true,
       addOptions: {
-        // Use "future" to only monitor future releases by default
-        // albumsToMonitor specifies the specific album we want to monitor
-        // This avoids the "none" bug where artist becomes unmonitored
-        monitor: "future",
+        // "Existing" only monitors albums already on disk (none for new artist)
+        // AlbumsToMonitor adds our specific album to be monitored
+        // This is the correct solution per Lidarr GitHub issue #3597
+        monitor: "existing",
         searchForMissingAlbums: false,
-        albumsToMonitor: foreignAlbumId ? [foreignAlbumId] : []
+        AlbumsToMonitor: foreignAlbumId ? [foreignAlbumId] : []
       }
     };
 

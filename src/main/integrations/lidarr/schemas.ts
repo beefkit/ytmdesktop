@@ -36,7 +36,7 @@ export type LidarrArtistLookupResult = {
 export type LidarrAddArtistOptions = {
   monitor: "all" | "future" | "missing" | "existing" | "first" | "latest" | "none";
   searchForMissingAlbums: boolean;
-  albumsToMonitor?: string[];
+  AlbumsToMonitor?: string[];
 };
 
 export type LidarrAddArtistPayload = LidarrArtistLookupResult & {
